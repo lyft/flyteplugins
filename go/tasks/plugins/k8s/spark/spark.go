@@ -3,6 +3,7 @@ package spark
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/lyft/flyteplugins/go/tasks/pluginmachinery"
@@ -30,6 +31,7 @@ import (
 const KindSparkApplication = "SparkApplication"
 const sparkDriverUI = "sparkDriverUI"
 const sparkHistoryUI = "sparkHistoryUI"
+const sparkExecutorKey = "spark.executor.instances"
 
 var sparkTaskType = "spark"
 
@@ -37,6 +39,12 @@ var sparkTaskType = "spark"
 type Config struct {
 	DefaultSparkConfig    map[string]string `json:"spark-config-default" pflag:",Key value pairs of default spark configuration that should be applied to every SparkJob"`
 	SparkHistoryServerURL string            `json:"spark-history-server-url" pflag:",URL for SparkHistory Server that each job will publish the execution history to."`
+	SparkLimits           Limits            `json:"spark-limits" pflag:", Spark Limits that can be set for each job execution."`
+}
+
+// Spark Limits config
+type Limits struct {
+	ExecutorCountLimit string `json:"executor-count-limit" pflag:",Max limit on number of executors allowed to be launched."`
 }
 
 var (
@@ -68,6 +76,29 @@ func validateSparkJob(sparkJob *plugins.SparkJob) error {
 		return fmt.Errorf("either MainApplicationFile or MainClass must be set")
 	}
 
+	return nil
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func checkLimits(sparkConfig map[string]string, limits Limits) error {
+	// Enforce executor limits
+	if limits.ExecutorCountLimit != "" {
+		userRequest, err := strconv.Atoi(sparkConfig[sparkExecutorKey])
+		if err != nil {
+			return err
+		}
+		limit, err := strconv.Atoi(limits.ExecutorCountLimit)
+		if err != nil {
+			return err
+		}
+		sparkConfig[sparkExecutorKey] = strconv.Itoa(min(limit, userRequest))
+	}
 	return nil
 }
 
@@ -140,6 +171,11 @@ func (sparkResourceHandler) BuildResource(ctx context.Context, taskCtx pluginsCo
 
 	for k, v := range sparkJob.GetSparkConf() {
 		sparkConfig[k] = v
+	}
+
+	err = checkLimits(sparkConfig, GetSparkConfig().SparkLimits)
+	if err != nil {
+		return nil, err
 	}
 
 	// Set pod limits.

@@ -224,7 +224,8 @@ func TestDemystifyPending(t *testing.T) {
 				},
 			},
 		}
-		taskStatus, err := DemystifyPending(s)
+		p := &v1.Pod{Status: s}
+		taskStatus, err := DemystifyPending(p)
 		assert.NoError(t, err)
 		assert.Equal(t, pluginsCore.PhaseQueued, taskStatus.Phase())
 	})
@@ -239,7 +240,8 @@ func TestDemystifyPending(t *testing.T) {
 				},
 			},
 		}
-		taskStatus, err := DemystifyPending(s)
+		p := &v1.Pod{Status: s}
+		taskStatus, err := DemystifyPending(p)
 		assert.NoError(t, err)
 		assert.Equal(t, pluginsCore.PhaseQueued, taskStatus.Phase())
 	})
@@ -254,7 +256,8 @@ func TestDemystifyPending(t *testing.T) {
 				},
 			},
 		}
-		taskStatus, err := DemystifyPending(s)
+		p := &v1.Pod{Status: s}
+		taskStatus, err := DemystifyPending(p)
 		assert.NoError(t, err)
 		assert.Equal(t, pluginsCore.PhaseQueued, taskStatus.Phase())
 	})
@@ -269,7 +272,8 @@ func TestDemystifyPending(t *testing.T) {
 				},
 			},
 		}
-		taskStatus, err := DemystifyPending(s)
+		p := &v1.Pod{Status: s}
+		taskStatus, err := DemystifyPending(p)
 		assert.NoError(t, err)
 		assert.Equal(t, pluginsCore.PhaseQueued, taskStatus.Phase())
 	})
@@ -304,7 +308,8 @@ func TestDemystifyPending(t *testing.T) {
 				},
 			},
 		}
-		taskStatus, err := DemystifyPending(s)
+		p := &v1.Pod{Status: s}
+		taskStatus, err := DemystifyPending(p)
 		assert.NoError(t, err)
 		assert.Equal(t, pluginsCore.PhaseInitializing, taskStatus.Phase())
 	})
@@ -321,7 +326,8 @@ func TestDemystifyPending(t *testing.T) {
 				},
 			},
 		}
-		taskStatus, err := DemystifyPending(s)
+		p := &v1.Pod{Status: s}
+		taskStatus, err := DemystifyPending(p)
 		assert.NoError(t, err)
 		assert.Equal(t, pluginsCore.PhaseInitializing, taskStatus.Phase())
 	})
@@ -338,7 +344,8 @@ func TestDemystifyPending(t *testing.T) {
 				},
 			},
 		}
-		taskStatus, err := DemystifyPending(s)
+		p := &v1.Pod{Status: s}
+		taskStatus, err := DemystifyPending(p)
 		assert.NoError(t, err)
 		assert.Equal(t, pluginsCore.PhaseInitializing, taskStatus.Phase())
 	})
@@ -355,7 +362,8 @@ func TestDemystifyPending(t *testing.T) {
 				},
 			},
 		}
-		taskStatus, err := DemystifyPending(s)
+		p := &v1.Pod{Status: s}
+		taskStatus, err := DemystifyPending(p)
 		assert.NoError(t, err)
 		assert.Equal(t, pluginsCore.PhaseRetryableFailure, taskStatus.Phase())
 	})
@@ -372,7 +380,8 @@ func TestDemystifyPending(t *testing.T) {
 				},
 			},
 		}
-		taskStatus, err := DemystifyPending(s)
+		p := &v1.Pod{Status: s}
+		taskStatus, err := DemystifyPending(p)
 		assert.NoError(t, err)
 		assert.Equal(t, pluginsCore.PhaseRetryableFailure, taskStatus.Phase())
 	})
@@ -389,7 +398,8 @@ func TestDemystifyPending(t *testing.T) {
 				},
 			},
 		}
-		taskStatus, err := DemystifyPending(s)
+		p := &v1.Pod{Status: s}
+		taskStatus, err := DemystifyPending(p)
 		assert.NoError(t, err)
 		assert.Equal(t, pluginsCore.PhaseRetryableFailure, taskStatus.Phase())
 	})
@@ -406,7 +416,8 @@ func TestDemystifyPending(t *testing.T) {
 				},
 			},
 		}
-		taskStatus, err := DemystifyPending(s)
+		p := &v1.Pod{Status: s}
+		taskStatus, err := DemystifyPending(p)
 		assert.NoError(t, err)
 		assert.Equal(t, pluginsCore.PhaseRetryableFailure, taskStatus.Phase())
 	})
@@ -499,9 +510,9 @@ func TestDemystifyPending_testcases(t *testing.T) {
 			testFile := filepath.Join("testdata", tt.filename)
 			data, err := ioutil.ReadFile(testFile)
 			assert.NoError(t, err, "failed to read file %s", testFile)
-			pod := &v1.Pod{}
+			pod := &v1.Pod{Status: v1.PodStatus{}}
 			if assert.NoError(t, json.Unmarshal(data, pod), "failed to unmarshal json in %s. Expected of type v1.Pod", testFile) {
-				p, err := DemystifyPending(pod.Status)
+				p, err := DemystifyPending(pod)
 				if tt.isErr {
 					assert.Error(t, err, "Error expected from method")
 				} else {

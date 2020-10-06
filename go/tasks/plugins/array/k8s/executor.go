@@ -7,6 +7,7 @@ import (
 
 	"github.com/lyft/flyteplugins/go/tasks/plugins/array"
 	arrayCore "github.com/lyft/flyteplugins/go/tasks/plugins/array/core"
+	"github.com/lyft/flytestdlib/logger"
 	"github.com/lyft/flytestdlib/promutils"
 
 	"github.com/lyft/flyteplugins/go/tasks/pluginmachinery"
@@ -77,11 +78,15 @@ func (e Executor) Handle(ctx context.Context, tCtx core.TaskExecutionContext) (c
 		fallthrough
 
 	case arrayCore.PhaseLaunch:
-		nextState, err = LaunchSubTasks(ctx, tCtx, e.kubeClient, pluginConfig, pluginState)
+		// In order to maintain backwards compatibility with the state transitions
+		// in the aws batch plugin. Forward to PhaseCheckingSubTasksExecutions where the launching
+		// is actually occurring.
+		nextState = pluginState.SetPhase(arrayCore.PhaseCheckingSubTaskExecutions, core.DefaultPhaseVersion).SetReason("Nothing to do in Launch phase.")
+		err = nil
 
 	case arrayCore.PhaseCheckingSubTaskExecutions:
-		nextState, logLinks, err = CheckSubTasksState(ctx, tCtx, e.kubeClient, tCtx.DataStore(),
-			tCtx.OutputWriter().GetOutputPrefixPath(), tCtx.OutputWriter().GetRawOutputPrefix(), pluginState)
+		nextState, logLinks, err = LaunchAndCheckSubTasksState(ctx, tCtx, e.kubeClient, pluginConfig,
+			tCtx.DataStore(), tCtx.OutputWriter().GetOutputPrefixPath(), tCtx.OutputWriter().GetRawOutputPrefix(), pluginState)
 
 	case arrayCore.PhaseAssembleFinalOutput:
 		nextState, err = array.AssembleFinalOutputs(ctx, e.outputsAssembler, tCtx, arrayCore.PhaseSuccess, pluginState)
@@ -128,8 +133,7 @@ func (e Executor) Finalize(ctx context.Context, tCtx core.TaskExecutionContext) 
 		return errors.Wrapf(errors.CorruptedPluginState, err, "Failed to read unmarshal custom state")
 	}
 
-	return TerminateSubTasks(ctx, tCtx.TaskExecutionMetadata(), e.kubeClient, pluginConfig.MaxErrorStringLength,
-		pluginState)
+	return TerminateSubTasks(ctx, tCtx, e.kubeClient, pluginConfig, pluginState)
 }
 
 func (e Executor) Start(ctx context.Context) error {
@@ -162,6 +166,15 @@ func GetNewExecutorPlugin(ctx context.Context, iCtx core.SetupContext) (core.Plu
 
 	if err = exec.Start(ctx); err != nil {
 		return nil, err
+	}
+
+	if IsResourceConfigSet() {
+		primaryLabel := GetConfig().ResourceConfig.PrimaryLabel
+		limit := GetConfig().ResourceConfig.Limit
+		if err := iCtx.ResourceRegistrar().RegisterResourceQuota(ctx, core.ResourceNamespace(primaryLabel), limit); err != nil {
+			logger.Errorf(ctx, "Token Resource registration for [%v] failed due to error [%v]", primaryLabel, err)
+			return nil, err
+		}
 	}
 
 	return exec, nil
